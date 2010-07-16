@@ -73,7 +73,30 @@ class TestDispatcher(Dispatcher):
             <status>ok</status>
         </sms_api>
         """
-
+    
+    def do_sendmessages(self, xml):
+        return """<?xml version="1.0"?>
+        <sms_api>
+            <sms>
+                <msisdn></msisdn>
+                <message></message>
+                <source_addr></source_addr>
+                <sentby></sentby>
+                <smstype></smstype>
+                <submit></submit>
+                <sms_id></sms_id>
+            </sms>
+            <sms>
+                <msisdn></msisdn>
+                <message></message>
+                <source_addr></source_addr>
+                <sentby></sentby>
+                <smstype></smstype>
+                <submit></submit>
+                <sms_id></sms_id>
+            </sms>
+        </sms_api>
+        """
 
 class TestConnection(Connection):
     
@@ -191,3 +214,8 @@ class HoustonTestCase(TestCase):
     def test_delete_messages(self):
         response = self.client.delete_message('sms id 1')
         self.assertEquals(response, "ok")
+
+    def test_send_messages(self):
+        response = self.client.send_messages({
+        })
+        print response

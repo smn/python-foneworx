@@ -46,7 +46,7 @@ class Client(object):
         return response.get('session_id')
     
     def logout(self):
-        response = self.connection.logout(api_session_id=self.session_id)
+        response = self.connection.logout(api_sessionid=self.session_id)
         return response.get('status')
     
     def new_messages(self, since=None):
@@ -56,16 +56,23 @@ class Client(object):
                 "smstime": since.strftime("%Y%m%d%H%M%S")
             })
         response = self.connection.newmessages(
-            api_session_id=self.session_id,
+            api_sessionid=self.session_id,
             action_content=action_content
         )
         return response.get('sms')
 
     def delete_message(self, sms_id):
         response = self.connection.deletenewmessages(
-            api_session_id=self.session_id,
+            api_sessionid=self.session_id,
             action_content={
                 'sms_id': sms_id
             }
         )
         return response.get('status')
+
+    def send_messages(self, *messages):
+        response = self.connection.sendmessages(
+            api_sessionid=self.session_id,
+            action_content=list(messages)
+        )
+        return response.get('sms')

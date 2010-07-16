@@ -5,6 +5,7 @@ from houston.utils import xml_to_dict, dict_to_xml, Dispatcher
 from houston.errors import ApiException
 from unittest import TestCase
 import logging
+from datetime import datetime, timedelta
 
 class TestDispatcher(Dispatcher):
     
@@ -26,27 +27,44 @@ class TestDispatcher(Dispatcher):
         """
     
     def do_newmessages(self, xml):
-        return """<?xml version="1.0"?>
-        <sms_api>
-            <error_type></error_type>
-            <sms>
-                <sms_id>sms id 1</sms_id>
-                <msisdn>+27123456789</msisdn>
-                <message>hello world</message>
-                <destination>+27123456789</destination>
-                <timereceived>20100714121511</timereceived>
-                <parent_sms_id>parent sms id 1</parent_sms_id>
-            </sms>
-            <sms>
-                <sms_id>sms id 2</sms_id>
-                <msisdn>+27123456789</msisdn>
-                <message>hello world</message>
-                <destination>+27123456789</destination>
-                <timereceived>20100714121511</timereceived>
-                <parent_sms_id>parent sms id 2</parent_sms_id>
-            </sms>
-        </sms_api>
-        """
+        # if the sms time parameter is given then
+        # only return a subset
+        if xml.findall('action_content/smstime'):
+            return """<?xml version="1.0"?>
+            <sms_api>
+                <error_type></error_type>
+                <sms>
+                    <sms_id>sms id 1</sms_id>
+                    <msisdn>+27123456789</msisdn>
+                    <message>hello world</message>
+                    <destination>+27123456789</destination>
+                    <timereceived>20100714121511</timereceived>
+                    <parent_sms_id>parent sms id 1</parent_sms_id>
+                </sms>
+            </sms_api>
+            """
+        else:
+            return """<?xml version="1.0"?>
+            <sms_api>
+                <error_type></error_type>
+                <sms>
+                    <sms_id>sms id 1</sms_id>
+                    <msisdn>+27123456789</msisdn>
+                    <message>hello world</message>
+                    <destination>+27123456789</destination>
+                    <timereceived>20100714121511</timereceived>
+                    <parent_sms_id>parent sms id 1</parent_sms_id>
+                </sms>
+                <sms>
+                    <sms_id>sms id 2</sms_id>
+                    <msisdn>+27123456789</msisdn>
+                    <message>hello world</message>
+                    <destination>+27123456789</destination>
+                    <timereceived>20100714121511</timereceived>
+                    <parent_sms_id>parent sms id 2</parent_sms_id>
+                </sms>
+            </sms_api>
+            """
 
 class TestConnection(Connection):
     
@@ -131,7 +149,7 @@ class HoustonTestCase(TestCase):
         status = self.client.logout()
         self.assertEquals(status, 'ok')
     
-    def test_newmessages(self):
+    def test_new_messages(self):
         response = self.client.new_messages()
         self.assertEquals(response, [{
             'parent_sms_id': 'parent sms id 1', 
@@ -148,4 +166,15 @@ class HoustonTestCase(TestCase):
             'timereceived': '20100714121511',
             'message': 'hello world',
             'sms_id': 'sms id 2'
+        }])
+
+    def test_new_messages_since_timestamp(self):
+        response = self.client.new_messages(since=datetime.now())
+        self.assertEquals(response, [{
+            'parent_sms_id': 'parent sms id 1', 
+            'msisdn': '+27123456789', 
+            'destination': '+27123456789', 
+            'timereceived': '20100714121511', 
+            'message': 'hello world', 
+            'sms_id': 'sms id 1'
         }])

@@ -49,6 +49,14 @@ class Client(object):
         response = self.connection.logout(api_session_id=self.session_id)
         return response.get('status')
     
-    def new_messages(self):
-        response = self.connection.newmessages(actioncontent={})
+    def new_messages(self, since=None):
+        action_content = {}
+        if since:
+            action_content.update({
+                "smstime": since.strftime("%Y%m%d%H%M%S")
+            })
+        response = self.connection.newmessages(
+            api_session_id=self.session_id,
+            action_content=action_content
+        )
         return response.get('sms')

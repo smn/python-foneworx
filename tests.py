@@ -66,6 +66,15 @@ class TestDispatcher(Dispatcher):
             </sms_api>
             """
 
+    def do_deletenewmessages(self, xml):
+        return """<?xml version="1.0"?>
+        <sms_api>
+            <error_type></error_type>
+            <status>ok</status>
+        </sms_api>
+        """
+
+
 class TestConnection(Connection):
     
     def __init__(self):
@@ -178,3 +187,7 @@ class HoustonTestCase(TestCase):
             'message': 'hello world', 
             'sms_id': 'sms id 1'
         }])
+
+    def test_delete_messages(self):
+        response = self.client.delete_message('sms id 1')
+        self.assertEquals(response, "ok")

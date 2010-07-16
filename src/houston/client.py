@@ -60,3 +60,12 @@ class Client(object):
             action_content=action_content
         )
         return response.get('sms')
+
+    def delete_message(self, sms_id):
+        response = self.connection.deletenewmessages(
+            api_session_id=self.session_id,
+            action_content={
+                'sms_id': sms_id
+            }
+        )
+        return response.get('status')

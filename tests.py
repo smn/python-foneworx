@@ -6,28 +6,7 @@ from houston.errors import ApiException
 from unittest import TestCase
 import logging
 
-class TestConnection(Dispatcher):
-    
-    def send(self, dictionary):
-        # reroute the remote calls to local calls for testing
-        api_action = dictionary['api_action']
-        sent_xml = dict_to_xml(dictionary, Element("sms_api"))
-        xml = fromstring(self.dispatch(api_action, sent_xml))
-        sms_api, response = xml_to_dict(xml)
-        # if at any point, we get this error something went wrong
-        if response.get('error_type'):
-            raise ApiException(response['error_type'], tostring(xml))
-        return response
-    
-    def __getattr__(self, attname):
-        """
-        All calls to the connection will automatically be sent
-        over the wire to FoneWorx as an API call.
-        """
-        def sms_api_wrapper(**options):
-            options.update({'api_action': attname})
-            return self.send(options)
-        return sms_api_wrapper
+class TestDispatcher(Dispatcher):
     
     def do_login(self, xml):
         return """<?xml version="1.0"?>
@@ -37,6 +16,57 @@ class TestConnection(Dispatcher):
             <api_doc_version></api_doc_version>
         </sms_api>
         """
+    
+    def do_logout(self, xml):
+        return """<?xml version="1.0"?>
+        <sms_api>
+            <status>ok</status>
+            <error_type></error_type>
+        </sms_api>
+        """
+    
+    def do_newmessages(self, xml):
+        return """<?xml version="1.0"?>
+        <sms_api>
+            <error_type></error_type>
+            <sms>
+                <sms_id>sms id 1</sms_id>
+                <msisdn>+27123456789</msisdn>
+                <message>hello world</message>
+                <destination>+27123456789</destination>
+                <timereceived>20100714121511</timereceived>
+                <parent_sms_id>parent sms id 1</parent_sms_id>
+            </sms>
+            <sms>
+                <sms_id>sms id 2</sms_id>
+                <msisdn>+27123456789</msisdn>
+                <message>hello world</message>
+                <destination>+27123456789</destination>
+                <timereceived>20100714121511</timereceived>
+                <parent_sms_id>parent sms id 2</parent_sms_id>
+            </sms>
+        </sms_api>
+        """
+
+class TestConnection(Connection):
+    
+    def __init__(self):
+        self.dispatcher = TestDispatcher()
+    
+    def send(self, dictionary):
+        # reroute the remote calls to local calls for testing
+        api_action = dictionary['api_action']
+        sent_xml = dict_to_xml(dictionary, Element("sms_api"))
+        logging.debug("Sending XML: %s" % tostring(sent_xml))
+        xml = fromstring(self.dispatcher.dispatch(api_action, sent_xml))
+        logging.debug("Received XML: %s" % tostring(xml))
+        sms_api, response = xml_to_dict(xml)
+        logging.debug("Received Dict: %s" % response)
+        # if at any point, we get this error something went wrong
+        if response.get('error_type'):
+            raise ApiException(response['error_type'], tostring(xml))
+        return response
+    
 
 class HoustonTestCase(TestCase):
     
@@ -51,13 +81,13 @@ class HoustonTestCase(TestCase):
         """dict to xml should recursively be able to parse dicts
         and output neat XML!"""
         d = {
-            "hello": {
-                "world": {
-                    "recursive": {
+            "hello": [{
+                "world": [{
+                    "recursive": [{
                         "i": "am"
-                    }
-                }
-            }
+                    }]
+                }]
+            }]
         }
         xml = dict_to_xml(d, root=Element("testing"))
         xml_string = tostring(xml, 'utf-8')
@@ -72,13 +102,13 @@ class HoustonTestCase(TestCase):
         testing, dictionary = xml_to_dict(xml)
         self.assertEquals(testing, "testing")
         self.assertEquals(dictionary, {
-            "hello": {
-                "world": {
-                    "recursive": {
+            "hello": [{
+                "world": [{
+                    "recursive": [{
                         "i": "am"
-                    }
-                }
-            }
+                    }]
+                }]
+            }]
         })
                     
     def test_dict_to_xml_unicode(self):
@@ -92,3 +122,30 @@ class HoustonTestCase(TestCase):
     def test_login(self):
         session_id = self.client.login()
         self.assertEquals(session_id, 'my_session_id')
+        
+    def test_session_id_property(self):
+        session_id = self.client.session_id
+        self.assertEquals(session_id, 'my_session_id')
+    
+    def test_logout(self):
+        status = self.client.logout()
+        self.assertEquals(status, 'ok')
+    
+    def test_newmessages(self):
+        response = self.client.new_messages()
+        self.assertEquals(response, [{
+            'parent_sms_id': 'parent sms id 1', 
+            'msisdn': '+27123456789', 
+            'destination': '+27123456789', 
+            'timereceived': '20100714121511', 
+            'message': 'hello world', 
+            'sms_id': 'sms id 1'
+        },
+        {   
+            'parent_sms_id': 'parent sms id 2',
+            'msisdn': '+27123456789',
+            'destination': '+27123456789',
+            'timereceived': '20100714121511',
+            'message': 'hello world',
+            'sms_id': 'sms id 2'
+        }])

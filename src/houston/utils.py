@@ -17,6 +17,9 @@ def dict_to_xml(dictionary, root=Element("root")):
     for key, value in dictionary.items():
         if isinstance(value, dict):
             root.append(dict_to_xml(value, Element(key)))
+        elif isinstance(value, list) and all(isinstance(d, dict) for d in value):
+            for dictionary in value:
+                root.append(dict_to_xml(dictionary, Element(key)))
         else:
             element = Element(key)
             element.text = value
@@ -30,7 +33,8 @@ def xml_to_dict(xml, dictionary=None):
     if xml.getchildren():
         for child in xml.getchildren():
             if child.getchildren():
-                _, dictionary[child.tag] = xml_to_dict(child, {})
+                child_tag, child_dict = xml_to_dict(child, {})
+                dictionary.setdefault(child_tag, []).append(child_dict)
             else:
                 dictionary[child.tag] = child.text
     else:

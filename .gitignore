@@ -1,3 +1,4 @@
 ve/
 *.egg-info
 *.pyc
+*.swp

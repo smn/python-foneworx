@@ -1,5 +1,6 @@
 from houston.utils import dict_to_xml, xml_to_dict
 from xml.etree.ElementTree import Element, tostring, fromstring
+from datetime import datetime, timedelta
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -29,9 +30,25 @@ class Client(object):
         self.username = username
         self.password = password
         self.connection = connection_class()
+        self._session_id = None
+    
+    @property
+    def session_id(self):
+        """Session ids time out after 10 minutes of inactivity."""
+        if not self._session_id:
+            self._session_id = self.login()
+        return self._session_id
     
     def login(self):
-        """Return a session id from the Foneworx API. Session ids time out
-        after 10 minutes of inactivity."""
-        return self.connection.login(api_username=self.username, 
-                                        api_password=self.password)['session_id']
+        """Return a session id from the Foneworx API. """
+        response = self.connection.login(api_username=self.username, 
+                                            api_password=self.password)
+        return response.get('session_id')
+    
+    def logout(self):
+        response = self.connection.logout(api_session_id=self.session_id)
+        return response.get('status')
+    
+    def new_messages(self):
+        response = self.connection.newmessages(actioncontent={})
+        return response.get('sms')

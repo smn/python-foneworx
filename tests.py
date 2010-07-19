@@ -83,8 +83,8 @@ class TestDispatcher(Dispatcher):
                 <source_addr></source_addr>
                 <sentby></sentby>
                 <smstype></smstype>
-                <submit></submit>
-                <sms_id></sms_id>
+                <submit>fail</submit>
+                <sms_id>sms 1</sms_id>
             </sms>
             <sms>
                 <msisdn></msisdn>
@@ -92,8 +92,8 @@ class TestDispatcher(Dispatcher):
                 <source_addr></source_addr>
                 <sentby></sentby>
                 <smstype></smstype>
-                <submit></submit>
-                <sms_id></sms_id>
+                <submit>success</submit>
+                <sms_id>sms 2</sms_id>
             </sms>
         </sms_api>
         """
@@ -216,6 +216,17 @@ class HoustonTestCase(TestCase):
         self.assertEquals(response, "ok")
 
     def test_send_messages(self):
-        response = self.client.send_messages({
-        })
-        print response
+        response = self.client.send_messages([{
+            "msisdn": "+27123456789",
+            "message": "hello world",
+            "rule": "?",
+            "send_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }, {
+            "msisdn": "+27123456789",
+            "message": "hello world",
+            "rule": "?",
+            "send_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }])
+        # check the mocked responses from the API
+        self.assertEquals([d['submit'] for d in response], ['fail', 'success'])
+        self.assertEquals([d['sms_id'] for d in response], ['sms 1', 'sms 2'])

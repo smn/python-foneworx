@@ -70,9 +70,11 @@ class Client(object):
         )
         return response.get('status')
 
-    def send_messages(self, *messages):
+    def send_messages(self, messages):
         response = self.connection.sendmessages(
             api_sessionid=self.session_id,
-            action_content=list(messages)
+            action_content={
+                "sms": messages
+            }
         )
         return response.get('sms')

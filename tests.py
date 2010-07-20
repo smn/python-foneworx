@@ -8,6 +8,11 @@ import logging
 from datetime import datetime, timedelta
 
 class TestDispatcher(Dispatcher):
+    """
+    This dispatcher mimicks the responses we get back from the 
+    Foneworx XML api (according to their API docs). Instead of going
+    over the network I send back the XML response straight away.
+    """
     
     def do_login(self, xml):
         return """<?xml version="1.0"?>

@@ -1,6 +1,6 @@
 # coding=utf-8
 from xml.etree.ElementTree import Element, tostring, fromstring
-from houston.client import Client, Connection
+from houston.client import Client, Connection, Status
 from houston.utils import xml_to_dict, dict_to_xml, Dispatcher
 from houston.errors import ApiException
 from unittest import TestCase
@@ -280,7 +280,7 @@ class HoustonTestCase(TestCase):
         sms = response.pop()
         self.assertEquals(sms, {
             'sms_id': 'sms id 1',
-            'status_id': '3',
+            'status_id': Status('3'),
             'status_text': 'Delivered',
             'time_submitted': datetime(2010, 7, 20, 11, 00,00),
             'time_processed': datetime(2010, 7, 20, 12, 00,00),

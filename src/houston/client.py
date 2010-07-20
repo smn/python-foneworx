@@ -20,7 +20,9 @@ class Connection(object):
         return sms_api_wrapper
 
 class Status(object):
-    
+    """
+    Not being used currently
+    """
     values = {
         0: "To Be Sent",
         1: "Submitted To Network",
@@ -38,7 +40,12 @@ class Status(object):
     }
     
     def __init__(self, status_id):
-        self.status_id = int(status_id)
+        self.status_id = status_id
+    
+    def __eq__(self, other):
+        if isinstance(other, Status):
+            return other.id == self.id
+        return False
     
     @property
     def id(self):
@@ -46,14 +53,17 @@ class Status(object):
     
     @property
     def text(self):
-        return self.values.get(self.id, 'Unknown status')
+        return self.values.get(int(self.id), 'Unknown status')
     
     def __repr__(self):
         return "<Status id: %s, msg: %s>" % (self.id, self.text)
 
 
 class Convertor(Dispatcher):
-    
+    """
+    Convert a key, value pair to a python object. For now it's primarily
+    used for timestamp strings -> datetime objects
+    """
     def do_datetime(self, string):
         return datetime.strptime(string, '%Y%m%d%H%M%S')
     
@@ -62,7 +72,14 @@ class Convertor(Dispatcher):
     do_time_processed = \
     do_timereceived = do_datetime
     
+    def do_status_id(self, status_id):
+        return Status(status_id)
+    
     def convert(self, key, value):
+        """
+        Wraps the Dispatcher.dispatch to return the original values
+        for when a convertor doesn't exist for the given key
+        """
         try:
             return key, self.dispatch(key, value)
         except Exception, e:
@@ -78,6 +95,9 @@ class Client(object):
         self._session_id = None
     
     def to_python_values(self, dictionary):
+        """
+        Convert a dictionary to more pythonic values
+        """
         convertor = Convertor()
         return dict(convertor.convert(*kv) for kv in dictionary.items())
         
@@ -89,16 +109,32 @@ class Client(object):
         return self._session_id
     
     def login(self):
-        """Return a session id from the Foneworx API. """
+        """
+        To log into an account, and get a session var allocated to your login.
+        """
         response = self.connection.login(api_username=self.username, 
                                             api_password=self.password)
         return response.get('session_id')
     
     def logout(self):
+        """
+        This Function is used to release the sessionid
+        """
         response = self.connection.logout(api_sessionid=self.session_id)
         return response.get('status')
     
     def new_messages(self, since=None):
+        """
+        Get New Messages for a user
+        
+        Arguments:
+        
+        since --    if since is empty the system will only return new messages 
+                    since the last time of this call for this user. if since
+                    (datetime object) is filled in, it will return all message 
+                    since that time
+        
+        """
         action_content = {}
         if since:
             action_content.update({
@@ -111,6 +147,14 @@ class Client(object):
         return [self.to_python_values(sms) for sms in response.get('sms')]
 
     def delete_message(self, sms_id):
+        """
+        Delete New Messages for a user
+        
+        Arguments:
+        
+        sms_id --   the id of the sms to be deleted
+        
+        """
         response = self.connection.deletenewmessages(
             api_sessionid=self.session_id,
             action_content={
@@ -120,6 +164,29 @@ class Client(object):
         return response.get('status')
 
     def send_messages(self, messages):
+        """
+        Send Sms Messages
+        
+        Arguments:
+        
+        messages -- A list of messages to be sent. Each message is a dictionary.
+        
+        The dictionary's key values match the XML element names of the Foneworx
+        XML API:
+        
+        -- Manditory 
+            <msisdn> - number(s) to send the message to, delimited by ~ (tilde)
+            <message> - message to be sent
+        -- Allowed Characters: See General Notes
+        -- Optional 
+            <rule> - which rule to link the message to 
+            <send_at> - when to send the sms (yyyy-mm-dd HH:MM:SS)
+        -- Optional - Please do not specify these, unless you have been given the correct values by foneworx
+            <source_addr> - the number the message is sent from (only works if you also specify <sentby>)
+            <sentby> - the bind/account to use to send the message 
+            <smstype> - 0 for normal text sms, 64 for encoded sms, and then message has to contain the hex string
+        
+        """
         response = self.connection.sendmessages(
             api_sessionid=self.session_id,
             action_content={
@@ -130,7 +197,7 @@ class Client(object):
     
     def sent_messages(self, **options):
         """
-        Available options:
+        Get Status Updates For Sent Messages
         
         Keyword arguments:
         
@@ -150,6 +217,14 @@ class Client(object):
         return [self.to_python_values(sms) for sms in response.get('sms')]
     
     def delete_sentmessages(self, sms_id):
+        """
+        Delete a Sent Message
+        
+        Arguments:
+        
+        sms_id -- the id of the sms
+        
+        """
         response = self.connection.deletesentmessages(
             api_sessionid=self.session_id,
             action_content={

@@ -7,12 +7,7 @@ logging.basicConfig(level=logging.DEBUG)
 class Connection(object): 
     
     def send(self, dictionary):
-        logging.debug("Sending dict: %s" % dictionary)
-        xml = dict_to_xml(dictionary, Element("sms_api"))
-        xml_string = tostring(xml, encoding='utf-8')
-        logging.debug("Sending XML: %s" % xml_string)
-        sms_api, result = xml_to_dict(fromstring(xml_string))
-        return result
+        pass
     
     def __getattr__(self, attname):
         """
@@ -23,6 +18,38 @@ class Connection(object):
             options.update({'api_action': attname})
             return self.send(options)
         return sms_api_wrapper
+
+class Status(object):
+    
+    values = {
+        0: "To Be Sent",
+        1: "Submitted To Network",
+        2: "At Network",
+        3: "Delivered",
+        4: "Rejected",
+        5: "Undelivered",
+        6: "Expired",
+        9: "Submit Failed",
+        10: "Cancelled",
+        11: "Scheduled",
+        91: "Message Length is Invalid",
+        911: "Desitnation Addr Is Invalid",
+        988: "Throttling Error",
+    }
+    
+    def __init__(self, status_id):
+        self.status_id = int(status_id)
+    
+    @property
+    def id(self):
+        return self.status_id
+    
+    @property
+    def text(self):
+        return self.values.get(self.id, 'Unknown status')
+    
+    def __repr__(self):
+        return "<Status id: %s, msg: %s>" % (self.id, self.text)
 
 class Client(object):
     
@@ -78,3 +105,33 @@ class Client(object):
             }
         )
         return response.get('sms')
+    
+    def sent_messages(self, **options):
+        """
+        Available options:
+        
+        Keyword arguments:
+        
+        smstime --  if smstime is empty the system will only return new messages 
+                    since the last time of this call for this user. if smstime 
+                    (format yyyymmddHHMMSS) is filled in, it will return all 
+                    message since that time
+        
+        give_detail --  if you want the message and the destination numbers 
+                        returned for each sms (1) - true (0) - false
+        
+        """
+        response = self.connection.sentmessages(
+            api_sessionid=self.session_id,
+            action_content=options
+        )
+        return response.get('sms')
+    
+    def delete_sentmessages(self, sms_id):
+        response = self.connection.deletesentmessages(
+            api_sessionid=self.session_id,
+            action_content={
+                'sms_id': sms_id
+            }
+        )
+        return response.get('status')

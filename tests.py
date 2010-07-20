@@ -97,6 +97,47 @@ class TestDispatcher(Dispatcher):
             </sms>
         </sms_api>
         """
+    
+    def do_sentmessages(self, xml):
+        return """<?xml version="1.0"?>
+        <sms_api>
+            <error_type></error_type>
+            <sms>
+                <sms_id>sms id 1</sms_id>
+                <status_id>3</status_id>
+                <status_text>Delivered</status_text>
+                <time_submitted>20100720110000</time_submitted>
+                <time_processed>20100720120000</time_processed>
+                <rule></rule>
+                <short_message>Hello World</short_message>
+                <destination_addr>+27123456789</destination_addr>
+            </sms>
+        </sms_api>
+        """
+    
+    def do_deletesentmessages(self, xml):
+        sms_id_node = xml.find('action_content/sms_id')
+        if sms_id_node.text == 'sms id 1':
+            return """<?xml version="1.0"?>
+            <sms_api>
+                <error_type></error_type>
+                <status>ok</status>
+            </sms_api>
+            """
+        elif sms_id_node.text == 'sms id 2':
+            return """<?xml version="1.0"?>
+            <sms_api>
+                <error_type></error_type>
+                <status>fail</status>
+            </sms_api>
+            """
+        else:
+            return """<?xml version="1.0"?>
+            <sms_api>
+                <error_type>la merde a frappé le ventilateur</error_type>
+                <status></status>
+            </sms_api>
+            """
 
 class TestConnection(Connection):
     
@@ -172,7 +213,7 @@ class HoustonTestCase(TestCase):
     def test_login(self):
         session_id = self.client.login()
         self.assertEquals(session_id, 'my_session_id')
-        
+    
     def test_session_id_property(self):
         session_id = self.client.session_id
         self.assertEquals(session_id, 'my_session_id')
@@ -199,7 +240,7 @@ class HoustonTestCase(TestCase):
             'message': 'hello world',
             'sms_id': 'sms id 2'
         }])
-
+    
     def test_new_messages_since_timestamp(self):
         response = self.client.new_messages(since=datetime.now())
         self.assertEquals(response, [{
@@ -210,11 +251,11 @@ class HoustonTestCase(TestCase):
             'message': 'hello world', 
             'sms_id': 'sms id 1'
         }])
-
+    
     def test_delete_messages(self):
         response = self.client.delete_message('sms id 1')
         self.assertEquals(response, "ok")
-
+    
     def test_send_messages(self):
         response = self.client.send_messages([{
             "msisdn": "+27123456789",
@@ -230,3 +271,28 @@ class HoustonTestCase(TestCase):
         # check the mocked responses from the API
         self.assertEquals([d['submit'] for d in response], ['fail', 'success'])
         self.assertEquals([d['sms_id'] for d in response], ['sms 1', 'sms 2'])
+    
+    def test_sent_messages(self):
+        response = self.client.sent_messages()
+        self.assertTrue(response)
+        self.assertEquals(len(response), 1)
+        # get the dict
+        sms = response.pop()
+        self.assertEquals(sms, {
+            'sms_id': 'sms id 1',
+            'status_id': '3',
+            'status_text': 'Delivered',
+            'time_submitted': '20100720110000',
+            'time_processed': '20100720120000',
+            'rule': None,
+            'short_message': 'Hello World',
+            'destination_addr': '+27123456789'
+        })
+    
+    def test_deletesentmessages(self):
+        response = self.client.delete_sentmessages('sms id 1')
+        self.assertEquals(response, "ok")
+        response = self.client.delete_sentmessages('sms id 2')
+        self.assertEquals(response, 'fail')
+        self.assertRaises(ApiException, self.client.delete_sentmessages, 
+                            'an obviously wrong id')

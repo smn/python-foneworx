@@ -228,7 +228,7 @@ class HoustonTestCase(TestCase):
             'parent_sms_id': 'parent sms id 1', 
             'msisdn': '+27123456789', 
             'destination': '+27123456789', 
-            'timereceived': '20100714121511', 
+            'timereceived': datetime(2010, 7, 14, 12, 15, 11), 
             'message': 'hello world', 
             'sms_id': 'sms id 1'
         },
@@ -236,7 +236,7 @@ class HoustonTestCase(TestCase):
             'parent_sms_id': 'parent sms id 2',
             'msisdn': '+27123456789',
             'destination': '+27123456789',
-            'timereceived': '20100714121511',
+            'timereceived': datetime(2010, 7, 14, 12, 15, 11),
             'message': 'hello world',
             'sms_id': 'sms id 2'
         }])
@@ -247,7 +247,7 @@ class HoustonTestCase(TestCase):
             'parent_sms_id': 'parent sms id 1', 
             'msisdn': '+27123456789', 
             'destination': '+27123456789', 
-            'timereceived': '20100714121511', 
+            'timereceived': datetime(2010, 7, 14, 12, 15, 11), 
             'message': 'hello world', 
             'sms_id': 'sms id 1'
         }])
@@ -282,8 +282,8 @@ class HoustonTestCase(TestCase):
             'sms_id': 'sms id 1',
             'status_id': '3',
             'status_text': 'Delivered',
-            'time_submitted': '20100720110000',
-            'time_processed': '20100720120000',
+            'time_submitted': datetime(2010, 7, 20, 11, 00,00),
+            'time_processed': datetime(2010, 7, 20, 12, 00,00),
             'rule': None,
             'short_message': 'Hello World',
             'destination_addr': '+27123456789'

@@ -1,4 +1,4 @@
-from houston.utils import dict_to_xml, xml_to_dict
+from houston.utils import dict_to_xml, xml_to_dict, Dispatcher
 from xml.etree.ElementTree import Element, tostring, fromstring
 from datetime import datetime, timedelta
 import logging
@@ -51,6 +51,24 @@ class Status(object):
     def __repr__(self):
         return "<Status id: %s, msg: %s>" % (self.id, self.text)
 
+
+class Convertor(Dispatcher):
+    
+    def do_datetime(self, string):
+        return datetime.strptime(string, '%Y%m%d%H%M%S')
+    
+    # these do all the same
+    do_time_submitted = \
+    do_time_processed = \
+    do_timereceived = do_datetime
+    
+    def convert(self, key, value):
+        try:
+            return key, self.dispatch(key, value)
+        except Exception, e:
+            return key, value
+    
+
 class Client(object):
     
     def __init__(self, username, password, connection_class=Connection):
@@ -59,6 +77,10 @@ class Client(object):
         self.connection = connection_class()
         self._session_id = None
     
+    def to_python_values(self, dictionary):
+        convertor = Convertor()
+        return dict(convertor.convert(*kv) for kv in dictionary.items())
+        
     @property
     def session_id(self):
         """Session ids time out after 10 minutes of inactivity."""
@@ -86,7 +108,7 @@ class Client(object):
             api_sessionid=self.session_id,
             action_content=action_content
         )
-        return response.get('sms')
+        return [self.to_python_values(sms) for sms in response.get('sms')]
 
     def delete_message(self, sms_id):
         response = self.connection.deletenewmessages(
@@ -125,7 +147,7 @@ class Client(object):
             api_sessionid=self.session_id,
             action_content=options
         )
-        return response.get('sms')
+        return [self.to_python_values(sms) for sms in response.get('sms')]
     
     def delete_sentmessages(self, sms_id):
         response = self.connection.deletesentmessages(

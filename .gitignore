@@ -4,3 +4,4 @@ ve/
 *.swp
 .coverage
 cover/*
+dropin.cache

@@ -1,7 +1,9 @@
 from xml.etree.ElementTree import Element, fromstring, tostring
+from twisted.internet.defer import Deferred, succeed, fail
+from twisted.internet import reactor
+from twisted.python import log
 
 class Dispatcher(object):
-    
     def __init__(self, prefix="do_"):
         self.prefix = prefix
     
@@ -11,6 +13,19 @@ class Dispatcher(object):
             fn = getattr(self, command_name)
             return fn(*args, **kwargs)
         raise Exception, 'No dispatcher available for %s' % command
+
+class DeferredDispatcher(object):
+    
+    def __init__(self, *args, **kwargs):
+        self.disp = Dispatcher(*args, **kwargs)
+    
+    def dispatch(self, *args):
+        deferred = Deferred()
+        try:
+            deferred.callback(self.disp.dispatch(*args))
+        except Exception, e:
+            deferred.errback(e)
+        return deferred
 
 
 def dict_to_xml(dictionary, root=Element("root")):

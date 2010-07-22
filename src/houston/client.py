@@ -1,11 +1,11 @@
 from houston.utils import dict_to_xml, xml_to_dict, Dispatcher
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.python import log
 from xml.etree.ElementTree import Element, tostring, fromstring
 from datetime import datetime, timedelta
-import logging
-logging.basicConfig(level=logging.DEBUG)
 
 class Connection(object): 
-    
+    """Dummy implementation of a connection to the Foneworx SMS XML API"""
     def send(self, dictionary):
         pass
     
@@ -80,18 +80,17 @@ class Convertor(Dispatcher):
         Wraps the Dispatcher.dispatch to return the original values
         for when a convertor doesn't exist for the given key
         """
-        try:
+        if hasattr(self, "%s%s" % (self.prefix, key.lower())):
             return key, self.dispatch(key, value)
-        except Exception, e:
-            return key, value
+        return key, value
     
 
 class Client(object):
     
-    def __init__(self, username, password, connection_class=Connection):
+    def __init__(self, username, password, connection=Connection()):
         self.username = username
         self.password = password
-        self.connection = connection_class()
+        self.connection = connection
         self._session_id = None
     
     def to_python_values(self, dictionary):
@@ -100,29 +99,41 @@ class Client(object):
         """
         convertor = Convertor()
         return dict(convertor.convert(*kv) for kv in dictionary.items())
-        
-    @property
-    def session_id(self):
-        """Session ids time out after 10 minutes of inactivity."""
-        if not self._session_id:
-            self._session_id = self.login()
-        return self._session_id
     
+    @inlineCallbacks
+    def get_new_session_id(self):
+        """Get a new session_id from the Foneworx API"""
+        session_id = yield self.login()
+        returnValue(session_id)
+    
+    @inlineCallbacks
+    def get_session_id(self):
+        """
+        Session ids time out after 10 minutes of inactivity. Stored locally.
+        """
+        if not self._session_id:
+            self._session_id = yield self.get_new_session_id()
+        returnValue(self._session_id)
+    
+    @inlineCallbacks
     def login(self):
         """
         To log into an account, and get a session var allocated to your login.
         """
-        response = self.connection.login(api_username=self.username, 
+        response = yield self.connection.login(api_username=self.username, 
                                             api_password=self.password)
-        return response.get('session_id')
-    
+        returnValue(response.get('session_id'))
+
+    @inlineCallbacks
     def logout(self):
         """
         This Function is used to release the sessionid
         """
-        response = self.connection.logout(api_sessionid=self.session_id)
-        return response.get('status')
+        session_id = yield self.get_session_id()
+        response = yield self.connection.logout(api_sessionid=session_id)
+        returnValue(response.get('status'))
     
+    @inlineCallbacks
     def new_messages(self, since=None):
         """
         Get New Messages for a user
@@ -140,12 +151,14 @@ class Client(object):
             action_content.update({
                 "smstime": since.strftime("%Y%m%d%H%M%S")
             })
-        response = self.connection.newmessages(
-            api_sessionid=self.session_id,
+        session_id = yield self.get_session_id()
+        response = yield self.connection.newmessages(
+            api_sessionid=session_id,
             action_content=action_content
         )
-        return [self.to_python_values(sms) for sms in response.get('sms')]
-
+        returnValue([self.to_python_values(sms) for sms in response.get('sms')])
+        
+    @inlineCallbacks
     def delete_message(self, sms_id):
         """
         Delete New Messages for a user
@@ -155,14 +168,16 @@ class Client(object):
         sms_id --   the id of the sms to be deleted
         
         """
-        response = self.connection.deletenewmessages(
-            api_sessionid=self.session_id,
+        session_id = yield self.get_session_id()
+        response = yield self.connection.deletenewmessages(
+            api_sessionid=session_id,
             action_content={
                 'sms_id': sms_id
             }
         )
-        return response.get('status')
+        returnValue(response.get('status'))
 
+    @inlineCallbacks
     def send_messages(self, messages):
         """
         Send Sms Messages
@@ -187,14 +202,16 @@ class Client(object):
             <smstype> - 0 for normal text sms, 64 for encoded sms, and then message has to contain the hex string
         
         """
-        response = self.connection.sendmessages(
-            api_sessionid=self.session_id,
+        session_id = yield self.get_session_id()
+        response = yield self.connection.sendmessages(
+            api_sessionid=session_id,
             action_content={
                 "sms": messages
             }
         )
-        return response.get('sms')
+        returnValue(response.get('sms'))
     
+    @inlineCallbacks
     def sent_messages(self, **options):
         """
         Get Status Updates For Sent Messages
@@ -210,12 +227,14 @@ class Client(object):
                         returned for each sms (1) - true (0) - false
         
         """
-        response = self.connection.sentmessages(
-            api_sessionid=self.session_id,
+        session_id = yield self.get_session_id()
+        response = yield self.connection.sentmessages(
+            api_sessionid=session_id,
             action_content=options
         )
-        return [self.to_python_values(sms) for sms in response.get('sms')]
+        returnValue([self.to_python_values(sms) for sms in response.get('sms')])
     
+    @inlineCallbacks
     def delete_sentmessages(self, sms_id):
         """
         Delete a Sent Message
@@ -225,10 +244,11 @@ class Client(object):
         sms_id -- the id of the sms
         
         """
-        response = self.connection.deletesentmessages(
-            api_sessionid=self.session_id,
+        session_id = yield self.get_session_id()
+        response = yield self.connection.deletesentmessages(
+            api_sessionid=session_id,
             action_content={
                 'sms_id': sms_id
             }
         )
-        return response.get('status')
+        returnValue(response.get('status'))

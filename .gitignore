@@ -5,3 +5,4 @@ ve/
 .coverage
 cover/*
 dropin.cache
+_trial_temp/*

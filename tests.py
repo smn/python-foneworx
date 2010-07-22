@@ -4,7 +4,8 @@ from houston.client import Client, Connection, Status
 from houston.utils import xml_to_dict, dict_to_xml, Dispatcher
 from houston.errors import ApiException
 from unittest import TestCase
-import logging
+from twisted.python import log
+from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime, timedelta
 
 class TestDispatcher(Dispatcher):
@@ -149,26 +150,29 @@ class TestConnection(Connection):
     def __init__(self):
         self.dispatcher = TestDispatcher()
     
+    @inlineCallbacks
     def send(self, dictionary):
         # reroute the remote calls to local calls for testing
         api_action = dictionary['api_action']
         sent_xml = dict_to_xml(dictionary, Element("sms_api"))
-        logging.debug("Sending XML: %s" % tostring(sent_xml))
-        xml = fromstring(self.dispatcher.dispatch(api_action, sent_xml))
-        logging.debug("Received XML: %s" % tostring(xml))
+        print "Sending XML: %s" % tostring(sent_xml)
+        received_xml = yield self.dispatcher.dispatch(api_action, sent_xml)
+        xml = fromstring(received_xml)
+        print "Received XML: %s" % tostring(xml)
         sms_api, response = xml_to_dict(xml)
-        logging.debug("Received Dict: %s" % response)
+        print "Received Dict: %s" % response
         # if at any point, we get this error something went wrong
         if response.get('error_type'):
             raise ApiException(response['error_type'], tostring(xml))
-        return response
+        print 'Returning', response
+        returnValue(response)
     
 
 class HoustonTestCase(TestCase):
     
     def setUp(self):
         self.client = Client('username', 'password', 
-                                connection_class=TestConnection)
+                                connection=TestConnection())
     
     def tearDown(self):
         pass
@@ -206,7 +210,7 @@ class HoustonTestCase(TestCase):
                 }]
             }]
         })
-                    
+    
     def test_dict_to_xml_unicode(self):
         """shouldn't trip on unicode characters"""
         d = {
@@ -215,20 +219,25 @@ class HoustonTestCase(TestCase):
         xml = dict_to_xml(d, root=Element("unicode"))
         xml_string = tostring(xml, 'utf-8')
     
+        
+    @inlineCallbacks
     def test_login(self):
-        session_id = self.client.login()
+        session_id = yield self.client.login()
         self.assertEquals(session_id, 'my_session_id')
     
+    @inlineCallbacks
     def test_session_id_property(self):
-        session_id = self.client.session_id
+        session_id = yield self.client.session_id
         self.assertEquals(session_id, 'my_session_id')
     
+    @inlineCallbacks
     def test_logout(self):
-        status = self.client.logout()
+        status = yield self.client.logout()
         self.assertEquals(status, 'ok')
     
+    @inlineCallbacks
     def test_new_messages(self):
-        response = self.client.new_messages()
+        response = yield self.client.new_messages()
         self.assertEquals(response, [{
             'parent_sms_id': 'parent sms id 1', 
             'msisdn': '+27123456789', 

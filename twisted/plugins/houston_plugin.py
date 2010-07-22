@@ -22,16 +22,25 @@ class Options(usage.Options):
         ['debug', 'd', 'Turn on debug output'],
     ]
 
+class ConnectionWrapper(Connection):
+    
+    def __init__(self, protocol):
+        self.protocol = protocol
+    
+    @inlineCallbacks
+    def send(self, *args, **kwargs):
+        response = yield self.protocol.send(*args, **kwargs)
+        returnValue(response)
+    
+
 class HoustonProtocol(LineOnlyReceiver):
     delimiter = chr(0)
     
     def __init__(self, username, password, debug):
+        self.username = username
+        self.password = password
         self.debug = debug
-        self.onConnectionMade = Deferred()
         self.onLineReceived = None
-        # left off here...
-        self.connection = TwistedHoustonConnection()
-        self.connection.
     
     def lineReceived(self, line):
         log.msg("Received line: %s" % line)
@@ -45,10 +54,8 @@ class HoustonProtocol(LineOnlyReceiver):
         log.err(line)
     
     def sendLine(self, line):
-        
         if self.onLineReceived:
             raise RuntimeError, "onLineReceived already initialized before sending"
-        
         self.onLineReceived = Deferred()
         if self.debug:
             log.msg("Sending line: %s" % line)
@@ -60,22 +67,21 @@ class HoustonProtocol(LineOnlyReceiver):
     
     def connectionMade(self):
         log.msg("Connection made")
-        self.onConnectionMade.callback(self)
-    
-
-class TwistedHoustonConnection(Connection):
+        self.client = Client(self.username, self.password, 
+                                connection=ConnectionWrapper(self))
+        print self.client.login()
     
     @inlineCallbacks
     def send(self, dictionary):
         # reroute the remote calls to local calls for testing
         api_action = dictionary['api_action']
         sent_xml = dict_to_xml(dictionary, Element("sms_api"))
-        logging.debug("Sending XML: %s" % tostring(sent_xml))
+        log.msg("Sending XML: %s" % tostring(sent_xml))
         received_xml = yield self.sendLine(sent_xml)
         xml = fromstring(received_xml)
-        logging.debug("Received XML: %s" % tostring(xml))
+        log.msg("Received XML: %s" % tostring(xml))
         sms_api, response = xml_to_dict(xml)
-        logging.debug("Received Dict: %s" % response)
+        log.msg("Received Dict: %s" % response)
         # if at any point, we get this error something went wrong
         if response.get('error_type'):
             raise ApiException(response['error_type'], tostring(xml))

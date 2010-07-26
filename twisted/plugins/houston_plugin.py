@@ -4,7 +4,7 @@ from twisted.application.service import IServiceMaker
 from twisted.application import internet
 from twisted.plugin import IPlugin
 from twisted.internet.protocol import ClientFactory
-from twisted.protocols.basic import LineOnlyReceiver
+from twisted.protocols.basic import LineOnlyReceiver, LineReceiver
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from houston.client import Client, Connection
 from xml.etree.ElementTree import Element, tostring, fromstring
@@ -33,7 +33,8 @@ class ConnectionWrapper(Connection):
         returnValue(response)
     
 
-class HoustonProtocol(LineOnlyReceiver):
+class HoustonProtocol(LineReceiver):
+    
     delimiter = chr(0)
     
     def __init__(self, username, password, debug):
@@ -53,13 +54,17 @@ class HoustonProtocol(LineOnlyReceiver):
         log.err("Line length exceeded!")
         log.err(line)
     
+    def send_xml(self, xml):
+        return self.sendLine("""<?xml version="1.0" encoding="utf-8"?>%s""" \
+                                % tostring(xml))
+    
     def sendLine(self, line):
         if self.onLineReceived:
             raise RuntimeError, "onLineReceived already initialized before sending"
         self.onLineReceived = Deferred()
         if self.debug:
             log.msg("Sending line: %s" % line)
-        LineOnlyReceiver.sendLine(self, line)
+        LineReceiver.sendLine(self, line)
         return self.onLineReceived
     
     def connectionLost(self, reason):
@@ -69,7 +74,8 @@ class HoustonProtocol(LineOnlyReceiver):
         log.msg("Connection made")
         self.client = Client(self.username, self.password, 
                                 connection=ConnectionWrapper(self))
-        print self.client.login()
+        log.msg("Logging in...")
+        self.client.login()
     
     @inlineCallbacks
     def send(self, dictionary):
@@ -77,7 +83,7 @@ class HoustonProtocol(LineOnlyReceiver):
         api_action = dictionary['api_action']
         sent_xml = dict_to_xml(dictionary, Element("sms_api"))
         log.msg("Sending XML: %s" % tostring(sent_xml))
-        received_xml = yield self.sendLine(sent_xml)
+        received_xml = yield self.send_xml(sent_xml)
         xml = fromstring(received_xml)
         log.msg("Received XML: %s" % tostring(xml))
         sms_api, response = xml_to_dict(xml)

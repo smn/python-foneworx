@@ -6,3 +6,5 @@ ve/
 cover/*
 dropin.cache
 _trial_temp/*
+twistd.log
+twistd.pid

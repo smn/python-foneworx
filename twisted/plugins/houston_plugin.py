@@ -3,7 +3,7 @@ from twisted.python import usage, log
 from twisted.application.service import IServiceMaker
 from twisted.application import internet
 from twisted.plugin import IPlugin
-from twisted.internet.protocol import ClientFactory
+from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.protocols.basic import LineOnlyReceiver, LineReceiver
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from houston.client import Client, Connection
@@ -94,7 +94,7 @@ class HoustonProtocol(LineReceiver):
         returnValue(response)
         
 
-class HoustonFactory(ClientFactory):
+class HoustonFactory(ReconnectingClientFactory):
     
     def __init__(self, **options):
         self.options = options
@@ -105,10 +105,13 @@ class HoustonFactory(ClientFactory):
     def clientConnectionFailed(self, connector, reason):
         log.err("Client connection failed")
         log.err(reason)
+        ReconnectingClientFactory.clientConnectionFailed(self, connector, 
+                                                            reason)
     
     def clientConnectionLost(self, connector, reason):
         log.err("Client connection lost")
         log.err(reason)
+        ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
         
     def startFactory(self):
         log.msg('Starting factory')
@@ -118,6 +121,7 @@ class HoustonFactory(ClientFactory):
     
     def buildProtocol(self, addr):
         log.msg('Building protocol')
+        self.resetDelay()
         return HoustonProtocol(**self.options)
     
 

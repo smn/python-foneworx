@@ -3,7 +3,7 @@ from xml.etree.ElementTree import Element, tostring, fromstring
 from houston.client import Client, Connection, Status
 from houston.utils import xml_to_dict, dict_to_xml, Dispatcher
 from houston.errors import ApiException
-from unittest import TestCase
+from twisted.trial.unittest import TestCase
 from twisted.python import log
 from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime, timedelta
@@ -155,16 +155,16 @@ class TestConnection(Connection):
         # reroute the remote calls to local calls for testing
         api_action = dictionary['api_action']
         sent_xml = dict_to_xml(dictionary, Element("sms_api"))
-        print "Sending XML: %s" % tostring(sent_xml)
+        log.msg("Sending XML: %s" % tostring(sent_xml))
         received_xml = yield self.dispatcher.dispatch(api_action, sent_xml)
         xml = fromstring(received_xml)
-        print "Received XML: %s" % tostring(xml)
+        log.msg("Received XML: %s" % tostring(xml))
         sms_api, response = xml_to_dict(xml)
-        print "Received Dict: %s" % response
+        log.msg("Received Dict: %s" % response)
         # if at any point, we get this error something went wrong
         if response.get('error_type'):
             raise ApiException(response['error_type'], tostring(xml))
-        print 'Returning', response
+        log.msg('Returning: %s' % response)
         returnValue(response)
     
 
@@ -227,7 +227,7 @@ class HoustonTestCase(TestCase):
     
     @inlineCallbacks
     def test_session_id_property(self):
-        session_id = yield self.client.session_id
+        session_id = yield self.client.get_session_id()
         self.assertEquals(session_id, 'my_session_id')
     
     @inlineCallbacks
@@ -255,8 +255,9 @@ class HoustonTestCase(TestCase):
             'sms_id': 'sms id 2'
         }])
     
+    @inlineCallbacks
     def test_new_messages_since_timestamp(self):
-        response = self.client.new_messages(since=datetime.now())
+        response = yield self.client.new_messages(since=datetime.now())
         self.assertEquals(response, [{
             'parent_sms_id': 'parent sms id 1', 
             'msisdn': '+27123456789', 
@@ -266,12 +267,14 @@ class HoustonTestCase(TestCase):
             'sms_id': 'sms id 1'
         }])
     
+    @inlineCallbacks
     def test_delete_messages(self):
-        response = self.client.delete_message('sms id 1')
+        response = yield self.client.delete_message('sms id 1')
         self.assertEquals(response, "ok")
     
+    @inlineCallbacks
     def test_send_messages(self):
-        response = self.client.send_messages([{
+        response = yield self.client.send_messages([{
             "msisdn": "+27123456789",
             "message": "hello world",
             "rule": "?",
@@ -286,8 +289,9 @@ class HoustonTestCase(TestCase):
         self.assertEquals([d['submit'] for d in response], ['fail', 'success'])
         self.assertEquals([d['sms_id'] for d in response], ['sms 1', 'sms 2'])
     
+    @inlineCallbacks
     def test_sent_messages(self):
-        response = self.client.sent_messages()
+        response = yield self.client.sent_messages()
         self.assertTrue(response)
         self.assertEquals(len(response), 1)
         # get the dict
@@ -303,10 +307,13 @@ class HoustonTestCase(TestCase):
             'destination_addr': '+27123456789'
         })
     
-    def test_deletesentmessages(self):
-        response = self.client.delete_sentmessages('sms id 1')
+    @inlineCallbacks
+    def test_delete_sent_messages(self):
+        response = yield self.client.delete_sent_messages('sms id 1')
         self.assertEquals(response, "ok")
-        response = self.client.delete_sentmessages('sms id 2')
+        response = yield self.client.delete_sent_messages('sms id 2')
         self.assertEquals(response, 'fail')
-        self.assertRaises(ApiException, self.client.delete_sentmessages, 
-                            'an obviously wrong id')
+        self.assertFailure(
+            self.client.delete_sent_messages('an obviously wrong id'), # a deferred
+            ApiException
+        )

@@ -235,7 +235,7 @@ class Client(object):
         returnValue([self.to_python_values(sms) for sms in response.get('sms')])
     
     @inlineCallbacks
-    def delete_sentmessages(self, sms_id):
+    def delete_sent_messages(self, sms_id):
         """
         Delete a Sent Message
         

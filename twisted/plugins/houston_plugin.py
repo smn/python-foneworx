@@ -7,6 +7,7 @@ from twisted.plugin import IPlugin
 from twisted.internet.protocol import ClientFactory
 from twisted.protocols.basic import LineOnlyReceiver, LineReceiver
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet import error
 from houston.client import Client, Connection
 from houston.errors import HoustonException, ApiException
 from xml.etree.ElementTree import Element, tostring, fromstring
@@ -53,7 +54,6 @@ class HoustonProtocol(LineReceiver):
         self.buffer += data
     
     def xml_received(self, data):
-        log.msg("Received xml: %s" % data, logLevel=logging.DEBUG)
         if not self.onXMLReceived:
             raise HoustonException, "onXMLReceived not initialized for receiving"
         self.onXMLReceived.callback(data)
@@ -78,7 +78,10 @@ class HoustonProtocol(LineReceiver):
         return self.onXMLReceived
     
     def connectionLost(self, reason):
-        log.err("Connection lost, reason: %s" % reason)
+        if reason.check(error.ConnectionDone):
+            log.msg("Connection closed, processing received data")
+        else:
+            log.err("Connection lost, reason: %s" % reason)
         if self.buffer:
             log.msg('calling xml_received with %s' % self.buffer, logLevel=logging.DEBUG)
             self.xml_received(self.buffer)
@@ -120,8 +123,9 @@ class HoustonFactory(ClientFactory):
         log.err(reason)
     
     def clientConnectionLost(self, connector, reason):
-        log.err("Client connection lost")
-        log.err(reason)
+        if not reason.check(error.ConnectionDone):
+            log.err("Client connection lost")
+            log.err(reason)
         
     def startFactory(self):
         log.msg('Starting factory')

@@ -3,6 +3,7 @@ from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.python import log
 from xml.etree.ElementTree import Element, tostring, fromstring
 from datetime import datetime, timedelta
+from houston.errors import ApiException
 
 class Connection(object): 
     """Dummy implementation of a connection to the Foneworx SMS XML API"""
@@ -152,11 +153,18 @@ class Client(object):
                 "smstime": since.strftime("%Y%m%d%H%M%S")
             })
         session_id = yield self.get_session_id()
-        response = yield self.connection.newmessages(
-            api_sessionid=session_id,
-            action_content=action_content
-        )
-        returnValue([self.to_python_values(sms) for sms in response.get('sms')])
+        try:
+            response = yield self.connection.newmessages(
+                api_sessionid=session_id,
+                action_content=action_content
+            )
+            returnValue([self.to_python_values(sms) for sms in response.get('sms')])
+        except ApiException, e:
+            # this API is insane, why not an empty SMS element?
+            if e.args[0] == 'No New Messages':
+                returnValue([])
+            else:
+                raise
         
     @inlineCallbacks
     def delete_message(self, sms_id):

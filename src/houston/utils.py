@@ -55,3 +55,14 @@ def xml_to_dict(xml, dictionary=None):
     else:
         dictionary[xml.tag] = xml.text
     return xml.tag, dictionary
+
+
+def dict_to_api_command(dictionary, root="sms_api"):
+    xml = dict_to_xml(dictionary, Element(root))
+    return tostring(xml)
+
+
+def api_response_to_dict(response):
+    xml = fromstring(response)
+    sms_api, response = xml_to_dict(xml)
+    return response

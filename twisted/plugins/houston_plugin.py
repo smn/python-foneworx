@@ -1,18 +1,16 @@
 from zope.interface import implements
+
 from twisted.python import usage, log
 from twisted.python.log import logging
 from twisted.application.service import IServiceMaker
 from twisted.application import internet
 from twisted.plugin import IPlugin
-from twisted.internet.protocol import ClientFactory
-from twisted.protocols.basic import LineOnlyReceiver, LineReceiver
+from twisted.internet.protocol import ClientFactory, ConnectionWrapper
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet import error
+
 from houston.client import Client, Connection
-from houston.errors import HoustonException, ApiException
-from xml.etree.ElementTree import Element, tostring, fromstring
-from houston.utils import xml_to_dict, dict_to_xml
-from cStringIO import StringIO
+from houston import protocol
 
 class Options(usage.Options):
     optParameters = [
@@ -26,65 +24,7 @@ class Options(usage.Options):
         ['debug', 'd', 'Turn on debug output'],
     ]
 
-class ConnectionWrapper(Connection):
-    
-    def __init__(self, protocol):
-        self.protocol = protocol
-    
-    @inlineCallbacks
-    def send(self, *args, **kwargs):
-        response = yield self.protocol.send(*args, **kwargs)
-        returnValue(response)
-    
-
-class HoustonProtocol(LineReceiver):
-    
-    delimiter = chr(0)
-    
-    def __init__(self, username, password, debug):
-        self.username = username
-        self.password = password
-        self.debug = debug
-        self.onXMLReceived = None
-        self.setRawMode()
-        self.buffer = ''
-    
-    def rawDataReceived(self, data):
-        log.msg("Received raw data: %s" % data, logLevel=logging.DEBUG)
-        self.buffer += data
-    
-    def xml_received(self, data):
-        if not self.onXMLReceived:
-            raise HoustonException, "onXMLReceived not initialized for receiving"
-        self.onXMLReceived.callback(data)
-        self.onXMLReceived = None # reset
-        self.buffer = '' # reset
-    
-    def lineLengthExceeded(self, line):
-        log.err("Line length exceeded!")
-        log.err(line)
-    
-    def send_xml(self, xml):
-        return self.sendLine("""<?xml version="1.0" encoding="utf-8"?>%s""" \
-                                % tostring(xml))
-    
-    def sendLine(self, line):
-        if self.onXMLReceived:
-            raise RuntimeError, "onXMLReceived already initialized before sending"
-        self.onXMLReceived = Deferred()
-        if self.debug:
-            log.msg("Sending line: %s" % line, logLevel=logging.DEBUG)
-        LineReceiver.sendLine(self, line)
-        return self.onXMLReceived
-    
-    def connectionLost(self, reason):
-        if reason.check(error.ConnectionDone):
-            log.msg("Connection closed, processing received data")
-        else:
-            log.err("Connection lost, reason: %s" % reason)
-        if self.buffer:
-            log.msg('calling xml_received with %s' % self.buffer, logLevel=logging.DEBUG)
-            self.xml_received(self.buffer)
+class HoustonProtocol(protocol.HoustonProtocol):
     
     def connectionMade(self):
         log.msg("Connection made")
@@ -93,22 +33,7 @@ class HoustonProtocol(LineReceiver):
         log.msg("Logging in...")
         self.client.login()
     
-    @inlineCallbacks
-    def send(self, dictionary):
-        # reroute the remote calls to local calls for testing
-        api_action = dictionary['api_action']
-        sent_xml = dict_to_xml(dictionary, Element("sms_api"))
-        log.msg("Sending XML: %s" % tostring(sent_xml), logLevel=logging.DEBUG)
-        received_xml = yield self.send_xml(sent_xml)
-        xml = fromstring(received_xml)
-        log.msg("Received XML: %s" % tostring(xml), logLevel=logging.DEBUG)
-        sms_api, response = xml_to_dict(xml)
-        log.msg("Received Dict: %s" % response, logLevel=logging.DEBUG)
-        # if at any point, we get this error something went wrong
-        if response.get('error_type'):
-            raise ApiException(response['error_type'], tostring(xml))
-        returnValue(response)
-        
+    
 
 class HoustonFactory(ClientFactory):
     

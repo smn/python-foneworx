@@ -1,14 +1,17 @@
 from zope.interface import implements
 from twisted.python import usage, log
+from twisted.python.log import logging
 from twisted.application.service import IServiceMaker
 from twisted.application import internet
 from twisted.plugin import IPlugin
-from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.internet.protocol import ClientFactory
 from twisted.protocols.basic import LineOnlyReceiver, LineReceiver
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from houston.client import Client, Connection
+from houston.errors import HoustonException, ApiException
 from xml.etree.ElementTree import Element, tostring, fromstring
 from houston.utils import xml_to_dict, dict_to_xml
+from cStringIO import StringIO
 
 class Options(usage.Options):
     optParameters = [
@@ -41,14 +44,21 @@ class HoustonProtocol(LineReceiver):
         self.username = username
         self.password = password
         self.debug = debug
-        self.onLineReceived = None
+        self.onXMLReceived = None
+        self.setRawMode()
+        self.buffer = ''
     
-    def lineReceived(self, line):
-        log.msg("Received line: %s" % line)
-        if not self.onLineReceived:
-            raise RuntimeError, "onLineReceived not initialized for receiving"
-        self.onLineReceived.callback(line)
-        self.onLineReceived = None # reset
+    def rawDataReceived(self, data):
+        log.msg("Received raw data: %s" % data, logLevel=logging.DEBUG)
+        self.buffer += data
+    
+    def xml_received(self, data):
+        log.msg("Received xml: %s" % data, logLevel=logging.DEBUG)
+        if not self.onXMLReceived:
+            raise HoustonException, "onXMLReceived not initialized for receiving"
+        self.onXMLReceived.callback(data)
+        self.onXMLReceived = None # reset
+        self.buffer = '' # reset
     
     def lineLengthExceeded(self, line):
         log.err("Line length exceeded!")
@@ -59,16 +69,19 @@ class HoustonProtocol(LineReceiver):
                                 % tostring(xml))
     
     def sendLine(self, line):
-        if self.onLineReceived:
-            raise RuntimeError, "onLineReceived already initialized before sending"
-        self.onLineReceived = Deferred()
+        if self.onXMLReceived:
+            raise RuntimeError, "onXMLReceived already initialized before sending"
+        self.onXMLReceived = Deferred()
         if self.debug:
-            log.msg("Sending line: %s" % line)
+            log.msg("Sending line: %s" % line, logLevel=logging.DEBUG)
         LineReceiver.sendLine(self, line)
-        return self.onLineReceived
+        return self.onXMLReceived
     
     def connectionLost(self, reason):
         log.err("Connection lost, reason: %s" % reason)
+        if self.buffer:
+            log.msg('calling xml_received with %s' % self.buffer, logLevel=logging.DEBUG)
+            self.xml_received(self.buffer)
     
     def connectionMade(self):
         log.msg("Connection made")
@@ -82,19 +95,19 @@ class HoustonProtocol(LineReceiver):
         # reroute the remote calls to local calls for testing
         api_action = dictionary['api_action']
         sent_xml = dict_to_xml(dictionary, Element("sms_api"))
-        log.msg("Sending XML: %s" % tostring(sent_xml))
+        log.msg("Sending XML: %s" % tostring(sent_xml), logLevel=logging.DEBUG)
         received_xml = yield self.send_xml(sent_xml)
         xml = fromstring(received_xml)
-        log.msg("Received XML: %s" % tostring(xml))
+        log.msg("Received XML: %s" % tostring(xml), logLevel=logging.DEBUG)
         sms_api, response = xml_to_dict(xml)
-        log.msg("Received Dict: %s" % response)
+        log.msg("Received Dict: %s" % response, logLevel=logging.DEBUG)
         # if at any point, we get this error something went wrong
         if response.get('error_type'):
             raise ApiException(response['error_type'], tostring(xml))
         returnValue(response)
         
 
-class HoustonFactory(ReconnectingClientFactory):
+class HoustonFactory(ClientFactory):
     
     def __init__(self, **options):
         self.options = options
@@ -105,13 +118,10 @@ class HoustonFactory(ReconnectingClientFactory):
     def clientConnectionFailed(self, connector, reason):
         log.err("Client connection failed")
         log.err(reason)
-        ReconnectingClientFactory.clientConnectionFailed(self, connector, 
-                                                            reason)
     
     def clientConnectionLost(self, connector, reason):
         log.err("Client connection lost")
         log.err(reason)
-        ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
         
     def startFactory(self):
         log.msg('Starting factory')
@@ -121,7 +131,6 @@ class HoustonFactory(ReconnectingClientFactory):
     
     def buildProtocol(self, addr):
         log.msg('Building protocol')
-        self.resetDelay()
         return HoustonProtocol(**self.options)
     
 

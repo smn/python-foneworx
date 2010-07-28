@@ -72,7 +72,7 @@ class HoustonClientTestCase(TestCase):
     @inlineCallbacks
     def test_logout(self):
         status = yield self.client.logout()
-        self.assertEquals(status, 'ok')
+        self.assertEquals(status, 'Success')
     
     @inlineCallbacks
     def test_new_messages(self):
@@ -109,7 +109,7 @@ class HoustonClientTestCase(TestCase):
     @inlineCallbacks
     def test_delete_messages(self):
         response = yield self.client.delete_message('sms id 1')
-        self.assertEquals(response, "ok")
+        self.assertEquals(response, "Success")
     
     @inlineCallbacks
     def test_send_messages(self):
@@ -147,12 +147,12 @@ class HoustonClientTestCase(TestCase):
         })
     
     @inlineCallbacks
-    def test_delete_sent_messages(self):
-        response = yield self.client.delete_sent_messages('sms id 1')
-        self.assertEquals(response, "ok")
-        response = yield self.client.delete_sent_messages('sms id 2')
+    def test_delete_sent_message(self):
+        response = yield self.client.delete_sent_message('sms id 1')
+        self.assertEquals(response, "Success")
+        response = yield self.client.delete_sent_message('sms id 2')
         self.assertEquals(response, 'fail')
         self.assertFailure(
-            self.client.delete_sent_messages('an obviously wrong id'), # a deferred
+            self.client.delete_sent_message('an obviously wrong id'), # a deferred
             ApiException
         )

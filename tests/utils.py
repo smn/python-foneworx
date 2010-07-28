@@ -132,7 +132,7 @@ class TestDispatcher(Dispatcher):
             return """<?xml version="1.0"?>
             <sms_api>
                 <error_type></error_type>
-                <status>fail</status>
+                <change>fail</change>
             </sms_api>
             """
         else:

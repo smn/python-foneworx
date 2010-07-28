@@ -101,6 +101,9 @@ class Client(object):
         convertor = Convertor()
         return dict(convertor.convert(*kv) for kv in dictionary.items())
     
+    def reset_session_id(self):
+        self._session_id = None
+    
     @inlineCallbacks
     def get_new_session_id(self):
         """Get a new session_id from the Foneworx API"""
@@ -132,6 +135,7 @@ class Client(object):
         """
         session_id = yield self.get_session_id()
         response = yield self.connection.logout(api_sessionid=session_id)
+        self.reset_session_id()
         returnValue(response.get('status'))
     
     @inlineCallbacks
@@ -183,7 +187,7 @@ class Client(object):
                 'sms_id': sms_id
             }
         )
-        returnValue(response.get('status'))
+        returnValue(response.get('change'))
 
     @inlineCallbacks
     def send_messages(self, messages):
@@ -220,30 +224,46 @@ class Client(object):
         returnValue(response.get('sms'))
     
     @inlineCallbacks
-    def sent_messages(self, **options):
+    def sent_messages(self, since=None, give_detail=False):
         """
         Get Status Updates For Sent Messages
         
         Keyword arguments:
         
-        smstime --  if smstime is empty the system will only return new messages 
-                    since the last time of this call for this user. if smstime 
-                    (format yyyymmddHHMMSS) is filled in, it will return all 
+        since --  if since is empty the system will only return new messages 
+                    since the last time of this call for this user. if since 
+                    (datetime object) is filled in, it will return all 
                     message since that time
         
         give_detail --  if you want the message and the destination numbers 
-                        returned for each sms (1) - true (0) - false
+                        returned for each sms, boolean True / False
         
         """
+        
+        options = {
+            'give_detail': '1' if give_detail else '0'
+        }
+        
+        if since:
+            options.update({
+                'smstime': since.strftime("%Y%m%d%H%M%S")
+            })
+        
         session_id = yield self.get_session_id()
-        response = yield self.connection.sentmessages(
-            api_sessionid=session_id,
-            action_content=options
-        )
-        returnValue([self.to_python_values(sms) for sms in response.get('sms')])
+        try:
+            response = yield self.connection.sentmessages(
+                api_sessionid=session_id,
+                action_content=options
+            )
+            returnValue([self.to_python_values(sms) for sms in response.get('sms')])
+        except ApiException, e:
+            if e.args[0] == 'No Updates':
+                returnValue([])
+            else:
+                raise
     
     @inlineCallbacks
-    def delete_sent_messages(self, sms_id):
+    def delete_sent_message(self, sms_id):
         """
         Delete a Sent Message
         
@@ -259,4 +279,4 @@ class Client(object):
                 'sms_id': sms_id
             }
         )
-        returnValue(response.get('status'))
+        returnValue(response.get('change'))

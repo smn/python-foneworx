@@ -25,7 +25,7 @@ class TestDispatcher(Dispatcher):
     def do_logout(self, xml):
         return """<?xml version="1.0"?>
         <sms_api>
-            <status>ok</status>
+            <status>Success</status>
             <error_type></error_type>
         </sms_api>
         """
@@ -74,7 +74,7 @@ class TestDispatcher(Dispatcher):
         return """<?xml version="1.0"?>
         <sms_api>
             <error_type></error_type>
-            <status>ok</status>
+            <change>Success</change>
         </sms_api>
         """
     
@@ -125,7 +125,7 @@ class TestDispatcher(Dispatcher):
             return """<?xml version="1.0"?>
             <sms_api>
                 <error_type></error_type>
-                <status>ok</status>
+                <change>Success</change>
             </sms_api>
             """
         elif sms_id_node.text == 'sms id 2':

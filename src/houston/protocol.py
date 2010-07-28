@@ -3,21 +3,8 @@ from twisted.python.log import logging
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import error
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
-from houston.client import Connection
 from houston.errors import HoustonException
 from houston.utils import *
-
-class ConnectionWrapper(Connection):
-    
-    def __init__(self, protocol):
-        self.protocol = protocol
-    
-    @inlineCallbacks
-    def send(self, *args, **kwargs):
-        response = yield self.protocol.send(*args, **kwargs)
-        returnValue(response)
-    
-
 
 class HoustonProtocol(LineReceiver):
     

@@ -1,9 +1,14 @@
-from houston.utils import dict_to_xml, xml_to_dict, Dispatcher
+from houston.utils import dict_to_xml, xml_to_dict, Dispatcher, tostring, api_response_to_dict, Element
+
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.python import log
+from twisted.internet.protocol import ClientCreator
+from twisted.internet import reactor
+
 from xml.etree.ElementTree import Element, tostring, fromstring
 from datetime import datetime, timedelta
 from houston.errors import ApiException
+from houston.protocol import HoustonProtocol
 
 class Connection(object): 
     """Dummy implementation of a connection to the Foneworx SMS XML API"""
@@ -19,6 +24,28 @@ class Connection(object):
             options.update({'api_action': attname})
             return self.send(options)
         return sms_api_wrapper
+
+class TwistedConnection(Connection):
+    
+    def __init__(self, hostname, port):
+        self.hostname = hostname
+        self.port = port
+        self.creator = ClientCreator(reactor, HoustonProtocol)
+    
+    @inlineCallbacks
+    def send(self, dictionary):
+        # reroute the remote calls to local calls for testing
+        api_request = dict_to_xml(dictionary, root=Element("sms_api"))
+        log.msg("Sending XML: %s" % tostring(api_request))
+        
+        protocol = yield self.creator.connectTCP(self.hostname, self.port)
+        api_response = yield protocol.send_xml(api_request)
+        response = api_response_to_dict(api_response)
+        log.msg("Received Dict: %s" % response)
+        if response.get('error_type'):
+            raise ApiException(response['error_type'], api_response)
+        log.msg('Returning: %s' % response)
+        returnValue(response)
 
 class Status(object):
     """

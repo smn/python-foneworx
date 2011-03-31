@@ -2,9 +2,9 @@
 from xml.etree.ElementTree import Element, tostring, fromstring
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
-from houston.utils import xml_to_dict, dict_to_xml, Dispatcher
-from houston.client import Connection
-from houston.errors import ApiException
+from foneworx.utils import xml_to_dict, dict_to_xml, Dispatcher
+from foneworx.client import Connection
+from foneworx.errors import ApiException
 
 class TestDispatcher(Dispatcher):
     """

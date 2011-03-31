@@ -1,8 +1,10 @@
-# Houston
+Python-Foneworx
+===============
 
 Twisted based library for interacting with Foneworx.co.za's XML API
 
-# Methods implemented
+Methods implemented
+-------------------
 
 * Login
 * Logout
@@ -12,9 +14,12 @@ Twisted based library for interacting with Foneworx.co.za's XML API
 * SentMessages
 * DeleteSentMessages
 
-# Usage:
+Usage:
+------
 
 It runs in Twisted, uses Trial for unittests.
+
+::
 
     $ virtualenv --no-site-packages ve
     $ source ve/bin/activate
@@ -22,18 +27,24 @@ It runs in Twisted, uses Trial for unittests.
 Run the client tests, the responses for these are mocked and do not need
 a Foneworx account set up.
 
+::
+
     (ve)$ trial tests.client_tests
 
 Run the connection tests, these tests do actually connect to Foneworx to send & receive SMSs. Running these tests will cost you money / SMS credits.
+
+::
 
     (ve)$ MSISDN=+27xxx USERNAME=xxx PASSWORD=xxx trial tests.connection_tests
 
 Part of the tests is a full stack: receive, reply, delivery report & delete.
 
+::
+
     (ve)$ USERNAME=xxx PASSWORD=xxx trial \
-    > tests.connection_tests.HoustonConnectionTestCase.test_full_stack
+    > tests.connection_tests.FoneworxConnectionTestCase.test_full_stack
     tests.connection_tests
-      HoustonConnectionTestCase
+      FoneworxConnectionTestCase
         test_full_stack ... Please send a test SMS to Foneworx in order to fill the inbox.
     Checking for new SMSs every 2 seconds
     Checking for new SMSs every 2 seconds

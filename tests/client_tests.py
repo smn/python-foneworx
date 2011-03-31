@@ -1,13 +1,13 @@
 # coding=utf-8
-from houston.client import Client, Status
-from houston.errors import ApiException
+from foneworx.client import Client, Status
+from foneworx.errors import ApiException
 from twisted.trial.unittest import TestCase
 from twisted.python import log
 from twisted.internet.defer import inlineCallbacks, returnValue
 from datetime import datetime, timedelta
 from tests.utils import *
 
-class HoustonClientTestCase(TestCase):
+class FoneworxClientTestCase(TestCase):
     
     def setUp(self):
         self.client = Client('username', 'password', 

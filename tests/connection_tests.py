@@ -7,12 +7,12 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import log
 
-from houston.client import Client, TwistedConnection
-from houston.utils import dict_to_xml, api_response_to_dict, tostring, Element
-from houston.errors import ApiException
-from houston import protocol
+from foneworx.client import Client, TwistedConnection
+from foneworx.utils import dict_to_xml, api_response_to_dict, tostring, Element
+from foneworx.errors import ApiException
+from foneworx import protocol
 
-class HoustonConnectionTestCase(TestCase):
+class FoneworxConnectionTestCase(TestCase):
     """Not to be automated, use for manual testing only"""
     
     def setUp(self):

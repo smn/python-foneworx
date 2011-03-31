@@ -3,10 +3,10 @@ from twisted.python.log import logging
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import error
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
-from houston.errors import HoustonException
-from houston.utils import *
+from foneworx.errors import FoneworxException
+from foneworx.utils import *
 
-class HoustonProtocol(LineReceiver):
+class FoneworxProtocol(LineReceiver):
     
     delimiter = chr(0)
     
@@ -21,7 +21,7 @@ class HoustonProtocol(LineReceiver):
     
     def xml_received(self, data):
         if not self.onXMLReceived:
-            raise HoustonException, "onXMLReceived not initialized for receiving"
+            raise FoneworxException, "onXMLReceived not initialized for receiving"
         self.onXMLReceived.callback(data)
         self.onXMLReceived = None # reset
         self.buffer = '' # reset
@@ -36,7 +36,7 @@ class HoustonProtocol(LineReceiver):
     
     def sendLine(self, line):
         if self.onXMLReceived:
-            raise HoustonException, "onXMLReceived already initialized before sending"
+            raise FoneworxException, "onXMLReceived already initialized before sending"
         self.onXMLReceived = Deferred()
         log.msg("Sending line: %s" % line, logLevel=logging.DEBUG)
         LineReceiver.sendLine(self, line)

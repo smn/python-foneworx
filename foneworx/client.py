@@ -1,4 +1,4 @@
-from houston.utils import dict_to_xml, xml_to_dict, Dispatcher, tostring, api_response_to_dict, Element
+from foneworx.utils import dict_to_xml, xml_to_dict, Dispatcher, tostring, api_response_to_dict, Element
 
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.python import log
@@ -7,8 +7,8 @@ from twisted.internet import reactor
 
 from xml.etree.ElementTree import Element, tostring, fromstring
 from datetime import datetime, timedelta
-from houston.errors import ApiException
-from houston.protocol import HoustonProtocol
+from foneworx.errors import ApiException
+from foneworx.protocol import FoneworxProtocol
 
 class Connection(object): 
     """Dummy implementation of a connection to the Foneworx SMS XML API"""
@@ -18,7 +18,7 @@ class Connection(object):
     def __getattr__(self, attname):
         """
         All calls to the connection will automatically be sent
-        over the wire to FoneWorx as an API call.
+        over the wire to Foneworx as an API call.
         """
         def sms_api_wrapper(*args, **options):
             options.update({'api_action': attname})
@@ -30,7 +30,7 @@ class TwistedConnection(Connection):
     def __init__(self, hostname, port):
         self.hostname = hostname
         self.port = port
-        self.creator = ClientCreator(reactor, HoustonProtocol)
+        self.creator = ClientCreator(reactor, FoneworxProtocol)
     
     @inlineCallbacks
     def send(self, dictionary):

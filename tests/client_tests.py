@@ -53,7 +53,7 @@ class FoneworxClientTestCase(TestCase):
     def test_dict_to_xml_unicode(self):
         """shouldn't trip on unicode characters"""
         d = {
-            "hello": "wørl∂"
+            "hello": u"wørl∂"
         }
         xml = dict_to_xml(d, root=Element("unicode"))
         xml_string = tostring(xml, 'utf-8')
